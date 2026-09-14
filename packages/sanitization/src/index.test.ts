@@ -32,9 +32,10 @@ describe('sanitize', () => {
     const text = JSON.stringify(output);
     expect(text).not.toContain('cancelled');
     expect(text).toContain('"length":3');
-    expect(text.match(/ref_[a-f0-9]{12}/g)?.[0]).toBe(
-      text.match(/ref_[a-f0-9]{12}/g)?.[1],
-    );
+    const relationships = [
+      ...text.matchAll(/"relationship":"(ref_[a-p]{12})"/g),
+    ];
+    expect(relationships[0]?.[1]).toBe(relationships[1]?.[1]);
     expect(text).not.toContain('private');
     expect(text).not.toContain('42');
   });
@@ -61,5 +62,20 @@ describe('sanitize', () => {
     ]) {
       expect(output).not.toContain(value);
     }
+  });
+
+  it('pseudonymizes dynamic object keys while preserving relationships', () => {
+    const output = JSON.stringify(
+      sanitize({
+        'ada@example.test': { filename: 'private.pdf' },
+        nested: { 'ada@example.test': true },
+      }),
+    );
+    for (const key of ['ada@example.test', 'nested', 'filename'])
+      expect(output).not.toContain(key);
+    const references = output.match(/ref_[a-p]{12}/g) ?? [];
+    expect(
+      references.filter((reference) => reference === references[0]),
+    ).toHaveLength(2);
   });
 });

@@ -6,10 +6,16 @@ export type Sanitized =
 const IDENTIFIER_FIELDS = /^(id|.*Id|.*Ids|key|orgid|orgId|schoolNumber)$/i;
 
 function pseudonym(value: string | number, salt: string): string {
-  return `ref_${createHash('sha256')
+  const digest = createHash('sha256')
     .update(`${salt}:${String(value)}`)
     .digest('hex')
-    .slice(0, 12)}`;
+    .slice(0, 12);
+  // Letter-only output cannot accidentally reproduce a sensitive numeric ID.
+  return `ref_${[...digest]
+    .map((character) =>
+      String.fromCharCode('a'.charCodeAt(0) + Number.parseInt(character, 16)),
+    )
+    .join('')}`;
 }
 
 /** Produces structural metadata. Values are denied by default, not copied. */
@@ -34,8 +40,12 @@ export function sanitize(
   }
   if (typeof value === 'object') {
     const fields: Record<string, Sanitized> = {};
-    for (const [key, child] of Object.entries(value as Record<string, unknown>))
-      fields[key] = sanitize(child, salt, key);
+    for (const [key, child] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
+      // Dictionary keys can themselves contain names, addresses, or filenames.
+      fields[pseudonym(key, salt)] = sanitize(child, salt, key);
+    }
     return { type: 'object', fields: { type: 'fields', ...fields } };
   }
   if (

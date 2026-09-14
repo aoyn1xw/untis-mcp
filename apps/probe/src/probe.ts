@@ -35,24 +35,6 @@ export const CAPABILITIES: CapabilityName[] = [
 ];
 export const DEFAULT_CAPABILITY_TIMEOUT_MS = 15_000;
 
-async function withTimeout<T>(
-  request: Promise<T>,
-  timeoutMs: number,
-): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error('Capability timed out')),
-      timeoutMs,
-    );
-  });
-  try {
-    return await Promise.race([request, timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 function hasData(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
   if (value && typeof value === 'object')
@@ -100,7 +82,7 @@ export async function runProbe(
       try {
         results[capability] = classifyCapabilitySuccess(
           capability,
-          await withTimeout(adapter.call(capability, range), timeoutMs),
+          await adapter.call(capability, range, { timeoutMs }),
         );
       } catch (error) {
         results[capability] = classifyError(error);

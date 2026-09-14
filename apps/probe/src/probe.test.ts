@@ -49,14 +49,17 @@ it('continues after an endpoint failure and logs out', async () => {
   expect(logout).toHaveBeenCalledOnce();
 });
 
-it('times out a stalled endpoint and continues probing', async () => {
+it('passes a transport timeout to each endpoint and continues probing', async () => {
+  const options: unknown[] = [];
   const adapter: UntisAdapter = {
     login: vi.fn(),
     logout: vi.fn(),
-    call: (name) =>
-      name === 'timetable_today'
-        ? new Promise(() => {})
-        : Promise.resolve(name === 'session_validation'),
+    call: (name, _range, callOptions) => {
+      options.push(callOptions);
+      return name === 'timetable_today'
+        ? Promise.reject(new Error('timeout'))
+        : Promise.resolve(name === 'session_validation');
+    },
   };
   const results = await runProbe(
     adapter,
@@ -69,6 +72,7 @@ it('times out a stalled endpoint and continues probing', async () => {
   });
   expect(results.timetable_range.status).toBe('available_empty');
   expect(results.session_validation.status).toBe('available_with_data');
+  expect(options).toEqual(CAPABILITIES.map(() => ({ timeoutMs: 5 })));
 });
 
 it('classifies a false session validation result as failed', async () => {

@@ -20,11 +20,20 @@ export interface ProbeDateRange {
   end: Date;
 }
 
+export interface CapabilityCallOptions {
+  /** Transport-level timeout; the adapter must cancel the request on expiry. */
+  timeoutMs: number;
+}
+
 /** Boundary used by the probe; return values intentionally remain unknown. */
 export interface UntisAdapter {
   login(): Promise<void>;
   logout(): Promise<void>;
-  call(capability: CapabilityName, range: ProbeDateRange): Promise<unknown>;
+  call(
+    capability: CapabilityName,
+    range: ProbeDateRange,
+    options?: CapabilityCallOptions,
+  ): Promise<unknown>;
 }
 
 export interface PasswordCredentials {

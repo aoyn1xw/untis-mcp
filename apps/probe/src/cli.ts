@@ -7,7 +7,7 @@ import {
   type Credentials,
 } from '@untis-mcp/untis-client';
 import { decodeQrFile } from './image.js';
-import { dateRange } from './range.js';
+import { dateRange, localDateText } from './range.js';
 import { runProbe } from './probe.js';
 import { writeReports } from './report.js';
 
@@ -68,12 +68,12 @@ async function main(): Promise<void> {
   try {
     const auth = await credentials();
     const today = new Date();
-    const defaultStart = today.toISOString().slice(0, 10);
+    const defaultStart = localDateText(today);
     const later = new Date(today);
     later.setDate(later.getDate() + 6);
     const start =
       (await ask(`Range start [${defaultStart}]: `)) || defaultStart;
-    const endDefault = later.toISOString().slice(0, 10);
+    const endDefault = localDateText(later);
     const end = (await ask(`Range end [${endDefault}]: `)) || endDefault;
     const results = await runProbe(
       new LegacyJsonRpcAdapter(auth),

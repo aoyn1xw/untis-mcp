@@ -4,6 +4,7 @@ import { URL } from 'node:url';
 import { safeError } from './errors.js';
 import type {
   CapabilityName,
+  CapabilityCallOptions,
   Credentials,
   ProbeDateRange,
   UntisAdapter,
@@ -50,7 +51,10 @@ export class LegacyJsonRpcAdapter implements UntisAdapter {
   async call(
     capability: CapabilityName,
     range: ProbeDateRange,
+    options?: CapabilityCallOptions,
   ): Promise<unknown> {
+    const previousTimeout = this.client.axios.defaults.timeout;
+    if (options) this.client.axios.defaults.timeout = options.timeoutMs;
     try {
       const calls: Record<CapabilityName, () => Promise<unknown>> = {
         timetable_today: () => this.client.getOwnTimetableForToday(false),
@@ -86,6 +90,10 @@ export class LegacyJsonRpcAdapter implements UntisAdapter {
       return await calls[capability]();
     } catch (error) {
       throw safeError(error);
+    } finally {
+      if (previousTimeout === undefined)
+        delete this.client.axios.defaults.timeout;
+      else this.client.axios.defaults.timeout = previousTimeout;
     }
   }
 }
