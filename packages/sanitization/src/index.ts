@@ -3,13 +3,6 @@ import { createHash } from 'node:crypto';
 export type Sanitized =
   null | boolean | { type: string; [key: string]: Sanitized | number | string };
 
-const ENUM_FIELDS = new Set([
-  'status',
-  'code',
-  'cellState',
-  'state',
-  'activityType',
-]);
 const IDENTIFIER_FIELDS = /^(id|.*Id|.*Ids|key|orgid|orgId|schoolNumber)$/i;
 
 function pseudonym(value: string | number, salt: string): string {
@@ -52,11 +45,9 @@ export function sanitize(
     return { type: typeof value, relationship: pseudonym(value, salt) };
   }
   if (typeof value === 'string') {
-    return ENUM_FIELDS.has(field) && /^[A-Za-z_-]{1,40}$/.test(value)
-      ? { type: 'string', enumValue: value }
-      : { type: 'string', redacted: true };
+    return { type: 'string', redacted: true };
   }
   if (typeof value === 'number') return { type: 'number' };
-  if (typeof value === 'boolean') return { type: 'boolean', value };
+  if (typeof value === 'boolean') return { type: 'boolean' };
   return { type: typeof value };
 }

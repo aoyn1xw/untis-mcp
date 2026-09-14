@@ -2,6 +2,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import {
   LegacyJsonRpcAdapter,
+  normalizeServerHost,
   parseQrProfile,
   type Credentials,
 } from '@untis-mcp/untis-client';
@@ -51,7 +52,9 @@ async function credentials(): Promise<Credentials> {
   }
   return {
     method: 'password',
-    server: await ask('WebUntis server URL: '),
+    server: normalizeServerHost(
+      await ask('WebUntis server hostname or HTTPS URL: '),
+    ),
     school: await ask('School: '),
     username: await ask('Username: '),
     password: await secret('Password (hidden): '),
@@ -85,7 +88,7 @@ async function main(): Promise<void> {
   } catch (error) {
     const message =
       error instanceof Error &&
-      /^(Invalid WebUntis QR profile|No QR code found|Date range)/.test(
+      /^(Invalid WebUntis QR profile|Invalid WebUntis server|No QR code found|Date range)/.test(
         error.message,
       )
         ? error.message

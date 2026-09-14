@@ -10,7 +10,7 @@ A QR profile is a **reusable credential**, not merely configuration: its `key` c
 
 Raw results can contain names, attendance, messages, exams, and free text. They remain under git-ignored `.local/`, use restrictive directory/file modes (`0700`/`0600`) where supported, and should be deleted promptly. The final terminal summary contains only capability names and classifications.
 
-The shareable sanitizer is allowlist-oriented and deny-by-default. It recursively records field names, types, nulls, array lengths, booleans, a small allowlist of enum-like values, and salted pseudonymous identifier relationships. All ordinary and unknown strings are replaced; numeric values are reduced to their types; internal identifiers become local pseudonyms. Only three array examples are retained. This is structural evidence, not permission to publish without inspection.
+The shareable sanitizer is deny-by-default. It recursively records only field names, scalar types, nulls, array lengths, at most three sanitized examples, and salted pseudonymous identifier relationships. String, boolean, numeric, status, state, code, and all other scalar values are omitted; internal identifiers become local pseudonyms. This is structural evidence, not permission to publish without inspection.
 
 ## Future design
 

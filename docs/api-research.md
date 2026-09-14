@@ -24,7 +24,7 @@ The maintainer has reportedly warned that the legacy JSON-RPC API may be retired
 | Classes                | `getCurrentSchoolyear` then `getClasses`             | class array                            | student-account permission           |
 | Session                | `validateSession`                                    | boolean-like                           | expiry behavior                      |
 
-The adapter disables redundant per-call session validation after an explicit login to bound request volume. It probes each endpoint once (classes additionally needs the current school year), caps ranges at 31 days, isolates endpoint failures, and logs out in `finally`.
+The adapter disables redundant per-call session validation after an explicit login to bound request volume. It probes each endpoint once (classes additionally needs the current school year), caps ranges at 31 days, applies a 15-second timeout to each capability, isolates failures and timeouts, and logs out in `finally`. Password-login server input is restricted to a bare hostname or origin-only HTTPS URL and normalized to its hostname.
 
 ## Local findings worksheet
 

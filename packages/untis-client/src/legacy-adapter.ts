@@ -1,5 +1,6 @@
 import { authenticator } from 'otplib';
 import { WebUntis, WebUntisQR } from 'webuntis';
+import { URL } from 'node:url';
 import { safeError } from './errors.js';
 import type {
   CapabilityName,
@@ -16,7 +17,12 @@ export class LegacyJsonRpcAdapter implements UntisAdapter {
   constructor(credentials: Credentials) {
     this.client =
       credentials.method === 'qr'
-        ? new WebUntisQR(credentials.profile, 'untis-mcp-probe', authenticator)
+        ? new WebUntisQR(
+            credentials.profile,
+            'untis-mcp-probe',
+            authenticator,
+            URL,
+          )
         : new WebUntis(
             credentials.school,
             credentials.username,

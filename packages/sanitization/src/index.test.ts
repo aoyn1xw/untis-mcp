@@ -23,19 +23,43 @@ describe('sanitize', () => {
     for (const secret of secrets) expect(output).not.toContain(secret);
     expect(output).not.toContain('sid=x');
   });
-  it('preserves shape, nullability, length, safe status and stable relationships', () => {
+  it('preserves shape, nullability, length and stable relationships', () => {
     const output = sanitize({
       status: 'cancelled',
       values: [null, { id: 42 }, { id: 42 }],
       mystery: 'private',
     });
     const text = JSON.stringify(output);
-    expect(text).toContain('cancelled');
+    expect(text).not.toContain('cancelled');
     expect(text).toContain('"length":3');
     expect(text.match(/ref_[a-f0-9]{12}/g)?.[0]).toBe(
       text.match(/ref_[a-f0-9]{12}/g)?.[1],
     );
     expect(text).not.toContain('private');
     expect(text).not.toContain('42');
+  });
+
+  it('never copies unknown scalar values or sensitive-looking classifications', () => {
+    expect(sanitize(true)).toEqual({ type: 'boolean' });
+    expect(sanitize(false)).toEqual({ type: 'boolean' });
+    const output = JSON.stringify(
+      sanitize({
+        unknownBoolean: true,
+        unknownNumber: 8675309,
+        unknownString: 'PRIVATE_VALUE',
+        status: 'student-needs-counselling',
+        state: 'ABSENT_WITH_PRIVATE_REASON',
+        code: 'SECRET_DISCIPLINE_CODE',
+      }),
+    );
+    for (const value of [
+      '8675309',
+      'PRIVATE_VALUE',
+      'student-needs-counselling',
+      'ABSENT_WITH_PRIVATE_REASON',
+      'SECRET_DISCIPLINE_CODE',
+    ]) {
+      expect(output).not.toContain(value);
+    }
   });
 });

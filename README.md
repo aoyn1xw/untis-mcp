@@ -18,7 +18,7 @@ pnpm install
 pnpm probe
 ```
 
-Choose a local QR screenshot, hidden pasted profile, or username/password login. Do not pass secrets as command-line arguments. The date interval is capped at 31 days. After every capability is attempted, the probe logs out and creates:
+Choose a local QR screenshot, hidden pasted profile, or username/password login. Password login accepts a hostname or origin-only HTTPS URL. Do not pass secrets as command-line arguments. The date interval is capped at 31 days and each capability has a 15-second timeout. After every capability is attempted, the probe logs out and creates:
 
 - `.local/probe/raw.json` — private school data; never share it.
 - `.local/probe/report.json` — deny-by-default sanitized structural evidence intended for inspection and sharing.

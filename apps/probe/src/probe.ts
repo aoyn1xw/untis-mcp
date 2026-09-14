@@ -33,6 +33,25 @@ export const CAPABILITIES: CapabilityName[] = [
   'time_grid',
   'session_validation',
 ];
+export const DEFAULT_CAPABILITY_TIMEOUT_MS = 15_000;
+
+async function withTimeout<T>(
+  request: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('Capability timed out')),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function hasData(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
@@ -50,6 +69,16 @@ export function classifySuccess(data: unknown): CapabilityResult {
   };
 }
 
+function classifyCapabilitySuccess(
+  capability: CapabilityName,
+  data: unknown,
+): CapabilityResult {
+  if (capability === 'session_validation' && data === false) {
+    return { status: 'failed', error: 'Session validation failed' };
+  }
+  return classifySuccess(data);
+}
+
 export function classifyError(error: unknown): CapabilityResult {
   const message = error instanceof Error ? error.message.toLowerCase() : '';
   if (/permission denied|forbidden|unauthorized/.test(message))
@@ -62,14 +91,16 @@ export function classifyError(error: unknown): CapabilityResult {
 export async function runProbe(
   adapter: UntisAdapter,
   range: ProbeDateRange,
+  timeoutMs = DEFAULT_CAPABILITY_TIMEOUT_MS,
 ): Promise<Record<CapabilityName, CapabilityResult>> {
   const results = {} as Record<CapabilityName, CapabilityResult>;
   await adapter.login();
   try {
     for (const capability of CAPABILITIES) {
       try {
-        results[capability] = classifySuccess(
-          await adapter.call(capability, range),
+        results[capability] = classifyCapabilitySuccess(
+          capability,
+          await withTimeout(adapter.call(capability, range), timeoutMs),
         );
       } catch (error) {
         results[capability] = classifyError(error);

@@ -48,3 +48,41 @@ it('continues after an endpoint failure and logs out', async () => {
   expect(results.homework.status).toBe('available_empty');
   expect(logout).toHaveBeenCalledOnce();
 });
+
+it('times out a stalled endpoint and continues probing', async () => {
+  const adapter: UntisAdapter = {
+    login: vi.fn(),
+    logout: vi.fn(),
+    call: (name) =>
+      name === 'timetable_today'
+        ? new Promise(() => {})
+        : Promise.resolve(name === 'session_validation'),
+  };
+  const results = await runProbe(
+    adapter,
+    { start: new Date('2026-01-01'), end: new Date('2026-01-07') },
+    5,
+  );
+  expect(results.timetable_today).toEqual({
+    status: 'failed',
+    error: 'Request failed',
+  });
+  expect(results.timetable_range.status).toBe('available_empty');
+  expect(results.session_validation.status).toBe('available_with_data');
+});
+
+it('classifies a false session validation result as failed', async () => {
+  const adapter: UntisAdapter = {
+    login: vi.fn(),
+    logout: vi.fn(),
+    call: () => Promise.resolve(false),
+  };
+  const results = await runProbe(adapter, {
+    start: new Date('2026-01-01'),
+    end: new Date('2026-01-07'),
+  });
+  expect(results.session_validation).toEqual({
+    status: 'failed',
+    error: 'Session validation failed',
+  });
+});
