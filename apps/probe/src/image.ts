@@ -11,9 +11,24 @@ export const MAX_IMAGE_WIDTH = 4096;
 export const MAX_IMAGE_HEIGHT = 4096;
 export const MAX_IMAGE_PIXELS = 16_000_000;
 
-export async function decodeQrFile(path: string): Promise<string> {
+async function loadImage(path: string) {
   const image = sharp(path);
-  const metadata = await image.metadata();
+  return { image, metadata: await image.metadata() };
+}
+
+export async function decodeQrFile(path: string): Promise<string> {
+  const trimmedPath = path.trim();
+  const first = trimmedPath[0];
+  const normalizedPath =
+    trimmedPath.length >= 2 &&
+    (first === '"' || first === "'") &&
+    trimmedPath.at(-1) === first
+      ? trimmedPath.slice(1, -1)
+      : trimmedPath;
+
+  const { image, metadata } = await loadImage(normalizedPath).catch(() => {
+    throw new Error('Could not read local QR image');
+  });
 
   if (
     metadata.width &&
@@ -25,10 +40,14 @@ export async function decodeQrFile(path: string): Promise<string> {
     throw new Error('Image is too large to decode safely');
   }
 
-  const { data, info } = await image
+  const decodedImage = await image
     .ensureAlpha()
     .raw()
-    .toBuffer({ resolveWithObject: true });
+    .toBuffer({ resolveWithObject: true })
+    .catch(() => {
+      throw new Error('Could not read local QR image');
+    });
+  const { data, info } = decodedImage;
   const decoded = decode(new Uint8ClampedArray(data), info.width, info.height);
   if (!decoded) throw new Error('No QR code found in local image');
   return decoded.data;

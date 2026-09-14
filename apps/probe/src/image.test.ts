@@ -53,4 +53,35 @@ describe('decodeQrFile', () => {
       await rm(tempDir, { recursive: true, force: true });
     }
   });
+
+  it('accepts a quoted local image path copied on Windows', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'qr path test-'));
+    const tempFile = join(tempDir, 'blank image.png');
+    try {
+      const blankPng = await sharp({
+        create: {
+          width: 10,
+          height: 10,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        },
+      })
+        .png()
+        .toBuffer();
+      await writeFile(tempFile, blankPng);
+
+      await expect(decodeQrFile(`"${tempFile}"`)).rejects.toThrow(
+        'No QR code found in local image',
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports image read failures without reflecting the local path', async () => {
+    const privatePath = join(tmpdir(), 'private school screenshot.png');
+    const promise = decodeQrFile(privatePath);
+    await expect(promise).rejects.toThrow('Could not read local QR image');
+    await expect(promise).rejects.not.toThrow(privatePath);
+  });
 });
