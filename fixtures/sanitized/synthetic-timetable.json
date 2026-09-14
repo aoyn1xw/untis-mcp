@@ -1,0 +1,17 @@
+{
+  "note": "Entirely fictional structural fixture",
+  "status": "available_with_data",
+  "structure": {
+    "type": "array",
+    "length": 1,
+    "lessonFields": [
+      "id",
+      "date",
+      "startTime",
+      "endTime",
+      "teachers",
+      "subjects",
+      "rooms"
+    ]
+  }
+}
