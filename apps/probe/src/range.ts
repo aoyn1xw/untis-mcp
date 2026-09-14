@@ -12,8 +12,13 @@ export function localDateText(date: Date): string {
 
 export function dateRange(startText: string, endText: string): ProbeDateRange {
   const date = z.iso.date();
-  const startIso = date.parse(startText);
-  const endIso = date.parse(endText);
+  const startResult = date.safeParse(startText);
+  const endResult = date.safeParse(endText);
+  if (!startResult.success || !endResult.success) {
+    throw new Error('Date range must use YYYY-MM-DD');
+  }
+  const startIso = startResult.data;
+  const endIso = endResult.data;
   const utcStart = Date.parse(`${startIso}T00:00:00Z`);
   const utcEnd = Date.parse(`${endIso}T00:00:00Z`);
   const calendarDays = Math.round((utcEnd - utcStart) / 86_400_000) + 1;
