@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/untis-client" },
+    { "path": "packages/sanitization" },
+    { "path": "apps/probe" }
+  ]
+}
