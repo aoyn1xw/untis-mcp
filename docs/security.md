@@ -12,6 +12,8 @@ Raw results can contain names, attendance, messages, exams, and free text. They 
 
 The shareable sanitizer is deny-by-default. It recursively records only field names, scalar types, nulls, array lengths, at most three sanitized examples, and salted pseudonymous identifier relationships. String, boolean, numeric, status, state, code, and all other scalar values are omitted; internal identifiers become local pseudonyms. This is structural evidence, not permission to publish without inspection.
 
+Object keys use an explicit deny-by-default strategy: known-safe structural API schema keys (such as `lessons`, `teachers`, `subjects`, `rooms`, `absences`, `incomingMessages`, and standard envelope metadata) are preserved verbatim so reports reveal what schema fields the school's server exposes. Dynamic, unrecognized, or user-controlled dictionary keys (such as filenames, email addresses, display names, numeric IDs, tokens, or prototype keys) are replaced with letter-only salted pseudonyms (`ref_[a-p]{12}`) using a per-report random salt. This trade-off balances structural discoverability against the risk of dynamic map keys leaking sensitive student data.
+
 ## Future design
 
 Stored Untis credentials will eventually use encrypted SQLite with AES-256-GCM, a unique nonce per value, authenticated metadata, and a deployment key outside the database. MCP OAuth will authenticate an MCP client separately from WebUntis authentication. Downstream tokens will never be passed through to Untis or vice versa. Least privilege, single-account deployments, output minimization, and a read-only policy remain mandatory.

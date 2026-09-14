@@ -33,18 +33,31 @@ export class LegacyJsonRpcAdapter implements UntisAdapter {
           );
   }
 
-  async login(): Promise<void> {
+  async login(options?: CapabilityCallOptions): Promise<void> {
+    const previousTimeout = this.client.axios.defaults.timeout;
+    if (options) this.client.axios.defaults.timeout = options.timeoutMs;
     try {
       await this.client.login();
     } catch (error) {
       throw safeError(error);
+    } finally {
+      if (previousTimeout === undefined)
+        delete this.client.axios.defaults.timeout;
+      else this.client.axios.defaults.timeout = previousTimeout;
     }
   }
-  async logout(): Promise<void> {
+
+  async logout(options?: CapabilityCallOptions): Promise<void> {
+    const previousTimeout = this.client.axios.defaults.timeout;
+    if (options) this.client.axios.defaults.timeout = options.timeoutMs;
     try {
       await this.client.logout();
     } catch {
       /* best effort; never expose session errors */
+    } finally {
+      if (previousTimeout === undefined)
+        delete this.client.axios.defaults.timeout;
+      else this.client.axios.defaults.timeout = previousTimeout;
     }
   }
 

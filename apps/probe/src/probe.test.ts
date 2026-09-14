@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CapabilityName, UntisAdapter } from '@untis-mcp/untis-client';
 import {
   CAPABILITIES,
+  classifyCapabilitySuccess,
   classifyError,
   classifySuccess,
   runProbe,
@@ -12,6 +13,45 @@ describe('classification', () => {
     expect(classifySuccess([]).status).toBe('available_empty');
     expect(classifySuccess([{ id: 1 }]).status).toBe('available_with_data');
   });
+
+  it('correctly classifies response envelopes with metadata', () => {
+    expect(classifySuccess({ items: [], count: 0, success: true }).status).toBe(
+      'available_empty',
+    );
+    expect(
+      classifySuccess({ items: [{ id: 1 }], count: 1, success: true }).status,
+    ).toBe('available_with_data');
+  });
+
+  it('correctly classifies absences envelopes', () => {
+    expect(
+      classifyCapabilitySuccess('absences', {
+        absences: [],
+        excuseStatuses: true,
+        showAbsenceReasonChange: false,
+      }).status,
+    ).toBe('available_empty');
+    expect(
+      classifyCapabilitySuccess('absences', {
+        absences: [{ id: 1 }],
+        excuseStatuses: true,
+      }).status,
+    ).toBe('available_with_data');
+  });
+
+  it('correctly classifies inbox envelopes', () => {
+    expect(
+      classifyCapabilitySuccess('inbox', {
+        incomingMessages: [],
+      }).status,
+    ).toBe('available_empty');
+    expect(
+      classifyCapabilitySuccess('inbox', {
+        incomingMessages: [{ id: 1 }],
+      }).status,
+    ).toBe('available_with_data');
+  });
+
   it('distinguishes safe errors without reflecting details', () => {
     expect(classifyError(new Error('403 Forbidden token=secret'))).toEqual({
       status: 'permission_denied',
@@ -49,11 +89,19 @@ it('continues after an endpoint failure and logs out', async () => {
   expect(logout).toHaveBeenCalledOnce();
 });
 
-it('passes a transport timeout to each endpoint and continues probing', async () => {
+it('passes a transport timeout to login, logout, and each endpoint and continues probing', async () => {
   const options: unknown[] = [];
+  const loginOptions: unknown[] = [];
+  const logoutOptions: unknown[] = [];
   const adapter: UntisAdapter = {
-    login: vi.fn(),
-    logout: vi.fn(),
+    login: vi.fn((opt) => {
+      loginOptions.push(opt);
+      return Promise.resolve();
+    }),
+    logout: vi.fn((opt) => {
+      logoutOptions.push(opt);
+      return Promise.resolve();
+    }),
     call: (name, _range, callOptions) => {
       options.push(callOptions);
       return name === 'timetable_today'
@@ -73,6 +121,8 @@ it('passes a transport timeout to each endpoint and continues probing', async ()
   expect(results.timetable_range.status).toBe('available_empty');
   expect(results.session_validation.status).toBe('available_with_data');
   expect(options).toEqual(CAPABILITIES.map(() => ({ timeoutMs: 5 })));
+  expect(loginOptions).toEqual([{ timeoutMs: 5 }]);
+  expect(logoutOptions).toEqual([{ timeoutMs: 5 }]);
 });
 
 it('classifies a false session validation result as failed', async () => {

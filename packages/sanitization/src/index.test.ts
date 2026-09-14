@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitize } from './index.js';
+import { sanitize, SAFE_SCHEMA_KEYS, isSafeSchemaKey } from './index.js';
 
 describe('sanitize', () => {
   it('never emits secrets or personal values, including nested arrays', () => {
@@ -16,17 +16,18 @@ describe('sanitize', () => {
         password: secrets[0],
         key: secrets[1],
         cookie: 'sid=x',
-        student: { name: secrets[2], email: secrets[3] },
+        students: [{ name: secrets[2], email: secrets[3] }],
         items: [{ authorization: secrets[4], unknownNewField: secrets[5] }],
       }),
     );
     for (const secret of secrets) expect(output).not.toContain(secret);
     expect(output).not.toContain('sid=x');
   });
+
   it('preserves shape, nullability, length and stable relationships', () => {
     const output = sanitize({
       status: 'cancelled',
-      values: [null, { id: 42 }, { id: 42 }],
+      lessons: [null, { id: 42 }, { id: 42 }],
       mystery: 'private',
     });
     const text = JSON.stringify(output);
@@ -64,18 +65,62 @@ describe('sanitize', () => {
     }
   });
 
-  it('pseudonymizes dynamic object keys while preserving relationships', () => {
-    const output = JSON.stringify(
-      sanitize({
-        'ada@example.test': { filename: 'private.pdf' },
-        nested: { 'ada@example.test': true },
-      }),
-    );
-    for (const key of ['ada@example.test', 'nested', 'filename'])
-      expect(output).not.toContain(key);
-    const references = output.match(/ref_[a-p]{12}/g) ?? [];
-    expect(
-      references.filter((reference) => reference === references[0]),
-    ).toHaveLength(2);
+  it('preserves known safe schema keys in report structures', () => {
+    const safeKeys = [
+      'lessons',
+      'teachers',
+      'subjects',
+      'rooms',
+      'assignedStudents',
+      'absences',
+      'incomingMessages',
+      'startTime',
+      'endTime',
+      'date',
+    ];
+    const input: Record<string, unknown> = {};
+    for (const k of safeKeys) input[k] = 'val';
+    const output = JSON.stringify(sanitize(input));
+    for (const k of safeKeys) {
+      expect(output).toContain(`"${k}"`);
+    }
+  });
+
+  it('pseudonymizes dynamic, sensitive, numeric, and prototype keys', () => {
+    const adversarialKeys = [
+      'ada@example.test',
+      'private_notes.pdf',
+      'John Doe',
+      '12345',
+      'bearer_token',
+      '__proto__',
+      'constructor',
+      'prototype',
+    ];
+    const input: Record<string, unknown> = {};
+    for (const key of adversarialKeys) {
+      input[key] = { value: 'private' };
+    }
+    const output = JSON.stringify(sanitize(input));
+    for (const key of adversarialKeys) {
+      expect(output).not.toContain(`"${key}"`);
+    }
+    // All generated pseudonyms must use only letter characters (a-p)
+    const matches = output.match(/ref_[a-p]{12}/g) ?? [];
+    expect(matches.length).toBeGreaterThan(0);
+    for (const match of matches) {
+      expect(match).toMatch(/^ref_[a-p]{12}$/);
+      expect(match).not.toMatch(/[0-9]/);
+    }
+  });
+
+  it('isSafeSchemaKey strictly denies prototype keys and arbitrary strings', () => {
+    expect(isSafeSchemaKey('__proto__')).toBe(false);
+    expect(isSafeSchemaKey('constructor')).toBe(false);
+    expect(isSafeSchemaKey('prototype')).toBe(false);
+    expect(isSafeSchemaKey('lessons')).toBe(true);
+    expect(isSafeSchemaKey('teachers')).toBe(true);
+    expect(isSafeSchemaKey('some_random_key')).toBe(false);
+    expect(SAFE_SCHEMA_KEYS.size).toBeGreaterThan(50);
   });
 });

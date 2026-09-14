@@ -5,12 +5,187 @@ export type Sanitized =
 
 const IDENTIFIER_FIELDS = /^(id|.*Id|.*Ids|key|orgid|orgId|schoolNumber)$/i;
 
-function pseudonym(value: string | number, salt: string): string {
+const FORBIDDEN_OBJECT_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+]);
+
+/**
+ * Allowlist of known-safe WebUntis schema properties and envelope metadata.
+ *
+ * Tradeoff:
+ * Known structural field names are preserved so the probe report reveals which API
+ * fields and collections the connected school supports. Unrecognized, user-controlled,
+ * or dynamic dictionary keys (e.g. emails, filenames, display names, IDs, tokens)
+ * are denied by default and pseudonymized with a letter-only digest to prevent leakage.
+ */
+export const SAFE_SCHEMA_KEYS: ReadonlySet<string> = new Set([
+  // Core timetable & lesson fields
+  'id',
+  'date',
+  'startTime',
+  'endTime',
+  'kl',
+  'te',
+  'su',
+  'ro',
+  'lstext',
+  'lsnumber',
+  'activityType',
+  'code',
+  'info',
+  'substText',
+  'statflags',
+  'sg',
+  'bkRemark',
+  'bkText',
+  'classes',
+  'teachers',
+  'subjects',
+  'rooms',
+  'students',
+  'elements',
+  'lessonId',
+  'lessonNumber',
+  'lessonCode',
+  'lessonText',
+  'periodText',
+  'hasPeriodText',
+  'periodInfo',
+  'periodAttachments',
+  'studentGroup',
+  'hasInfo',
+  'cellState',
+  'priority',
+  'is',
+  'roomCapacity',
+  'studentCount',
+  'roomSubstitution',
+  'substitution',
+  'standard',
+  'event',
+  'lessons',
+
+  // Master data & element descriptors
+  'name',
+  'longName',
+  'longname',
+  'orgname',
+  'orgid',
+  'orgId',
+  'displayname',
+  'alternatename',
+  'alternateName',
+  'canViewTimetable',
+  'externalKey',
+  'type',
+  'missing',
+  'state',
+  'gender',
+  'foreName',
+  'foreColor',
+  'backColor',
+  'active',
+  'did',
+  'teacher1',
+  'teacher2',
+
+  // Exams
+  'exams',
+  'examType',
+  'studentClass',
+  'assignedStudents',
+  'klasse',
+  'examDate',
+  'grade',
+  'text',
+
+  // Homework
+  'homework',
+  'attachments',
+  'completed',
+  'dueDate',
+  'remark',
+
+  // Absences
+  'absences',
+  'absenceReasons',
+  'excuseStatuses',
+  'showAbsenceReasonChange',
+  'showCreateAbsence',
+  'startDate',
+  'endDate',
+  'createDate',
+  'lastUpdate',
+  'createdUser',
+  'updatedUser',
+  'reasonId',
+  'reason',
+  'interruptions',
+  'canEdit',
+  'studentName',
+  'excuseStatus',
+  'isExcused',
+  'excuse',
+  'excuseDate',
+  'userId',
+  'username',
+
+  // Inbox & communications
+  'inbox',
+  'incomingMessages',
+  'allowMessageDeletion',
+  'contentPreview',
+  'hasAttachments',
+  'isMessageRead',
+  'isReply',
+  'isReplyAllowed',
+  'sender',
+  'sentDateTime',
+  'subject',
+  'displayName',
+  'imageUrl',
+  'className',
+
+  // Holidays, time grid & school years
+  'holidays',
+  'schoolYears',
+  'schoolyears',
+  'timegrid',
+  'timeUnits',
+  'day',
+  'messagesOfDay',
+  'isExpanded',
+  'systemMessage',
+  'rssUrl',
+
+  // Generic envelope / fixture metadata
+  'count',
+  'total',
+  'items',
+  'records',
+  'data',
+  'result',
+  'error',
+  'status',
+  'success',
+  'message',
+  'structure',
+  'lessonFields',
+]);
+
+export function isSafeSchemaKey(key: string): boolean {
+  if (FORBIDDEN_OBJECT_KEYS.has(key)) return false;
+  return SAFE_SCHEMA_KEYS.has(key);
+}
+
+export function pseudonym(value: string | number, salt: string): string {
   const digest = createHash('sha256')
     .update(`${salt}:${String(value)}`)
     .digest('hex')
     .slice(0, 12);
-  // Letter-only output cannot accidentally reproduce a sensitive numeric ID.
+  // Letter-only output (disjoint alphabet a-p) cannot accidentally reproduce a sensitive numeric ID.
   return `ref_${[...digest]
     .map((character) =>
       String.fromCharCode('a'.charCodeAt(0) + Number.parseInt(character, 16)),
@@ -43,8 +218,9 @@ export function sanitize(
     for (const [key, child] of Object.entries(
       value as Record<string, unknown>,
     )) {
-      // Dictionary keys can themselves contain names, addresses, or filenames.
-      fields[pseudonym(key, salt)] = sanitize(child, salt, key);
+      // Allowlist safe schema property names; pseudonymize dynamic or unrecognized keys.
+      const sanitizedKey = isSafeSchemaKey(key) ? key : pseudonym(key, salt);
+      fields[sanitizedKey] = sanitize(child, salt, key);
     }
     return { type: 'object', fields: { type: 'fields', ...fields } };
   }

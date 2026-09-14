@@ -12,10 +12,15 @@ export function localDateText(date: Date): string {
 
 export function dateRange(startText: string, endText: string): ProbeDateRange {
   const date = z.iso.date();
-  const start = new Date(`${date.parse(startText)}T00:00:00`);
-  const end = new Date(`${date.parse(endText)}T23:59:59`);
-  const days = (end.getTime() - start.getTime()) / 86_400_000;
-  if (days < 0 || days >= MAX_RANGE_DAYS)
+  const startIso = date.parse(startText);
+  const endIso = date.parse(endText);
+  const utcStart = Date.parse(`${startIso}T00:00:00Z`);
+  const utcEnd = Date.parse(`${endIso}T00:00:00Z`);
+  const calendarDays = Math.round((utcEnd - utcStart) / 86_400_000) + 1;
+  if (calendarDays < 1 || calendarDays > MAX_RANGE_DAYS) {
     throw new Error(`Date range must be 1-${MAX_RANGE_DAYS} days`);
+  }
+  const start = new Date(`${startIso}T00:00:00`);
+  const end = new Date(`${endIso}T23:59:59`);
   return { start, end };
 }

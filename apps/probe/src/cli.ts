@@ -1,5 +1,4 @@
-import { createInterface } from 'node:readline/promises';
-import { stdin, stdout } from 'node:process';
+import { stdout } from 'node:process';
 import {
   LegacyJsonRpcAdapter,
   normalizeServerHost,
@@ -10,54 +9,29 @@ import { decodeQrFile } from './image.js';
 import { dateRange, localDateText } from './range.js';
 import { runProbe } from './probe.js';
 import { writeReports } from './report.js';
-
-const rl = createInterface({ input: stdin, output: stdout });
-async function ask(prompt: string): Promise<string> {
-  return (await rl.question(prompt)).trim();
-}
-async function secret(prompt: string): Promise<string> {
-  if (!stdin.isTTY) return ask(prompt);
-  stdout.write(prompt);
-  stdin.setRawMode(true);
-  stdin.resume();
-  return new Promise((resolve) => {
-    let value = '';
-    const onData = (buffer: Buffer) => {
-      const char = buffer.toString();
-      if (char === '\r' || char === '\n') {
-        stdin.off('data', onData);
-        stdin.setRawMode(false);
-        stdout.write('\n');
-        resolve(value);
-      } else if (char === '\u0003') process.exit(130);
-      else if (char === '\u007f') value = value.slice(0, -1);
-      else value += char;
-    };
-    stdin.on('data', onData);
-  });
-}
+import { askQuestion, readHiddenSecret } from './terminal.js';
 
 async function credentials(): Promise<Credentials> {
   const method =
-    (await ask(
+    (await askQuestion(
       'Authentication: [1] QR image, [2] pasted QR profile, [3] password: ',
     )) || '1';
   if (method === '1' || method === '2') {
     const profile =
       method === '1'
-        ? await decodeQrFile(await ask('Local QR screenshot path: '))
-        : await secret('Paste QR profile (hidden): ');
+        ? await decodeQrFile(await askQuestion('Local QR screenshot path: '))
+        : await readHiddenSecret('Paste QR profile (hidden): ');
     parseQrProfile(profile);
     return { method: 'qr', profile };
   }
   return {
     method: 'password',
     server: normalizeServerHost(
-      await ask('WebUntis server hostname or HTTPS URL: '),
+      await askQuestion('WebUntis server hostname or HTTPS URL: '),
     ),
-    school: await ask('School: '),
-    username: await ask('Username: '),
-    password: await secret('Password (hidden): '),
+    school: await askQuestion('School: '),
+    username: await askQuestion('Username: '),
+    password: await readHiddenSecret('Password (hidden): '),
   };
 }
 
@@ -72,9 +46,10 @@ async function main(): Promise<void> {
     const later = new Date(today);
     later.setDate(later.getDate() + 6);
     const start =
-      (await ask(`Range start [${defaultStart}]: `)) || defaultStart;
+      (await askQuestion(`Range start [${defaultStart}]: `)) || defaultStart;
     const endDefault = localDateText(later);
-    const end = (await ask(`Range end [${endDefault}]: `)) || endDefault;
+    const end =
+      (await askQuestion(`Range end [${endDefault}]: `)) || endDefault;
     const results = await runProbe(
       new LegacyJsonRpcAdapter(auth),
       dateRange(start, end),
@@ -88,15 +63,13 @@ async function main(): Promise<void> {
   } catch (error) {
     const message =
       error instanceof Error &&
-      /^(Invalid WebUntis QR profile|Invalid WebUntis server|No QR code found|Date range)/.test(
+      /^(Invalid WebUntis QR profile|Invalid WebUntis server|No QR code found|Image is too large|Date range)/.test(
         error.message,
       )
         ? error.message
         : 'Probe failed safely';
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
-  } finally {
-    rl.close();
   }
 }
 void main();

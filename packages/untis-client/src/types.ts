@@ -27,8 +27,8 @@ export interface CapabilityCallOptions {
 
 /** Boundary used by the probe; return values intentionally remain unknown. */
 export interface UntisAdapter {
-  login(): Promise<void>;
-  logout(): Promise<void>;
+  login(options?: CapabilityCallOptions): Promise<void>;
+  logout(options?: CapabilityCallOptions): Promise<void>;
   call(
     capability: CapabilityName,
     range: ProbeDateRange,
