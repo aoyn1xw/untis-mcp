@@ -30,8 +30,12 @@ it('writes private raw data and a secret-free structural report', async () => {
   expect(report).not.toContain('Fictional Alice');
   expect(report).not.toContain('SUPERSECRET');
   expect(report).not.toContain('99');
-  expect((await stat(join(directory, 'raw.json'))).mode & 0o777).toBe(0o600);
-  expect((await stat(join(directory, 'report.json'))).mode & 0o777).toBe(0o600);
+  if (process.platform !== 'win32') {
+    expect((await stat(join(directory, 'raw.json'))).mode & 0o777).toBe(0o600);
+    expect((await stat(join(directory, 'report.json'))).mode & 0o777).toBe(
+      0o600,
+    );
+  }
 });
 
 it('cleans up its exclusive temporary file when atomic rename fails', async () => {

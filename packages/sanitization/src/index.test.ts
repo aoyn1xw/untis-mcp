@@ -86,6 +86,18 @@ describe('sanitize', () => {
     }
   });
 
+  it('preserves the structural type of Date values without their value', () => {
+    const output = sanitize({ startDate: new Date('2026-01-01T00:00:00Z') });
+    expect(output).toEqual({
+      type: 'object',
+      fields: {
+        type: 'fields',
+        startDate: { type: 'date' },
+      },
+    });
+    expect(JSON.stringify(output)).not.toContain('2026-01-01');
+  });
+
   it('pseudonymizes dynamic, sensitive, numeric, and prototype keys', () => {
     const adversarialKeys = [
       'ada@example.test',

@@ -9,7 +9,11 @@ import { decodeQrFile } from './image.js';
 import { dateRange, localDateText } from './range.js';
 import { runProbe } from './probe.js';
 import { writeReports } from './report.js';
-import { askQuestion, readHiddenSecret } from './terminal.js';
+import {
+  askQuestion,
+  readHiddenSecret,
+  safeCliErrorMessage,
+} from './terminal.js';
 
 async function credentials(): Promise<Credentials> {
   const method =
@@ -61,14 +65,7 @@ async function main(): Promise<void> {
       'Private raw data: .local/probe/raw.json\nShareable structural report: .local/probe/report.json\n',
     );
   } catch (error) {
-    const message =
-      error instanceof Error &&
-      /^(Invalid WebUntis QR profile|Invalid WebUntis server|No QR code found|Image is too large|Date range)/.test(
-        error.message,
-      )
-        ? error.message
-        : 'Probe failed safely';
-    process.stderr.write(`${message}\n`);
+    process.stderr.write(`${safeCliErrorMessage(error)}\n`);
     process.exitCode = 1;
   }
 }

@@ -213,6 +213,7 @@ export function sanitize(
       },
     };
   }
+  if (value instanceof Date) return { type: 'date' };
   if (typeof value === 'object') {
     const fields: Record<string, Sanitized> = {};
     for (const [key, child] of Object.entries(
