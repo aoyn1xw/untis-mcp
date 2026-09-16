@@ -1,0 +1,23 @@
+{
+  "name": "@untis-mcp/mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "untis-mcp": "dist/stdio.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/stdio.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@untis-mcp/timetable": "workspace:*",
+    "@untis-mcp/untis-client": "workspace:*",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2"
+  }
+}

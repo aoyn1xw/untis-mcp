@@ -8,11 +8,12 @@ import type {
   Credentials,
   ProbeDateRange,
   UntisAdapter,
+  TimetableAdapter,
 } from './types.js';
 
 type Client = InstanceType<typeof WebUntis> | InstanceType<typeof WebUntisQR>;
 
-export class LegacyJsonRpcAdapter implements UntisAdapter {
+export class LegacyJsonRpcAdapter implements UntisAdapter, TimetableAdapter {
   private readonly client: Client;
 
   constructor(credentials: Credentials) {
@@ -108,5 +109,12 @@ export class LegacyJsonRpcAdapter implements UntisAdapter {
         delete this.client.axios.defaults.timeout;
       else this.client.axios.defaults.timeout = previousTimeout;
     }
+  }
+
+  async getOwnTimetable(
+    range: ProbeDateRange,
+    options?: CapabilityCallOptions,
+  ): Promise<unknown> {
+    return this.call('timetable_range', range, options);
   }
 }

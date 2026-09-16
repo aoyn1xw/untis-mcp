@@ -1,22 +1,22 @@
 # Architecture
 
-## Milestone boundary
+## Milestone 2 boundary
 
-The probe application orchestrates calls through `UntisAdapter`; it does not expose HTTP or MCP. Sanitization is a separate package and sees adapter-independent `unknown` values. This separation prevents future MCP tool contracts from inheriting unofficial wrapper response types.
+The local server is a tools-only MCP vertical slice over stdio. `apps/mcp-server` owns protocol registration, structured output, stdio startup, and credential-file loading. `packages/timetable` owns calendar-range validation, the stable public timetable model, legacy allowlist normalization, serialized session lifecycle, timeouts, and safe application errors. `packages/untis-client` remains the replaceable WebUntis edge.
 
-`LegacyJsonRpcAdapter` is a replaceable compatibility edge around `webuntis`. It owns login, method mapping, and safe error translation. School-specific behavior is measured rather than asserted. A future `OfficialPlatformAdapter` should implement the same narrow domain boundary using the official Untis Platform API, without changing MCP tools.
+`LegacyJsonRpcAdapter` implements both boundaries:
 
-## Intended system
+- the deliberately opaque `UntisAdapter.call()` used by the evidence probe; and
+- the narrow typed timetable capability (`login`, `getOwnTimetable`, `logout`) used by the application service.
 
-The first MCP release will be **tools-only MCP v1**; resources may be considered after stable schemas exist. It will expose explicitly read-only operations—no attendance changes, messages, bookings, or other writes. Each self-hosted deployment connects exactly one Untis account.
+The typed method still returns `unknown` because unofficial wrapper/server data is untrusted until normalized. MCP schemas never import `webuntis` declarations. The normalizer recognizes the legacy `Lesson[]` shape declared by `webuntis` 2.2.1 and constructs every public property explicitly; it never spreads or falls back to serializing upstream records.
 
-Two transports are planned: local stdio for desktop clients and remote Streamable HTTP. Node.js on Render is the initial deployment target. A later Cloudflare-specific adapter may replace Node persistence/networking pieces; this milestone adds none of that infrastructure.
+## Request lifecycle
 
-The eventual layers are:
+The MCP factory accepts an injected adapter so protocol tests use fictional data. It registers only `get_timetable`. Each validated request enters a per-service promise queue, logs in, fetches the student's own range, normalizes it, and logs out in `finally`. Operations use a 15-second default bound. Validation happens before the queue or adapter is contacted. Successful calls include both MCP structured content and a compact JSON text block.
 
-1. MCP tools with stable, minimal schemas and authorization.
-2. account-independent read-only application services.
-3. replaceable Untis adapters (`LegacyJsonRpcAdapter`, later `OfficialPlatformAdapter`).
-4. allowlist-based output minimization and encrypted persistence.
+The stdio entry point loads one local credential file from `UNTIS_MCP_CREDENTIALS_FILE`, constructs the legacy adapter, and connects the official TypeScript MCP SDK stdio transport. Stdout belongs exclusively to MCP framing; there is no interactive input.
 
-Production MCP, OAuth, HTTP/Hono, databases, deployment definitions, official authentication, and multi-user support remain out of scope.
+## Deferred system
+
+A future `OfficialPlatformAdapter` may implement the same narrow domain boundary after official API access is researched. Streamable HTTP, OAuth, databases, encrypted persistence, multi-user support, deployment definitions, caching, resources, prompts, other data domains, and every write operation remain out of scope. No compatibility claim is made for every school/server response shape.

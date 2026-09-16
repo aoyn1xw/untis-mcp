@@ -36,6 +36,16 @@ export interface UntisAdapter {
   ): Promise<unknown>;
 }
 
+/** Narrow authenticated boundary used by the timetable application service. */
+export interface TimetableAdapter {
+  login(options?: CapabilityCallOptions): Promise<void>;
+  getOwnTimetable(
+    range: ProbeDateRange,
+    options?: CapabilityCallOptions,
+  ): Promise<unknown>;
+  logout(options?: CapabilityCallOptions): Promise<void>;
+}
+
 export interface PasswordCredentials {
   method: 'password';
   server: string;
