@@ -17,3 +17,11 @@ Object keys use an explicit deny-by-default strategy: known-safe structural API 
 ## Future design
 
 Stored Untis credentials will eventually use encrypted SQLite with AES-256-GCM, a unique nonce per value, authenticated metadata, and a deployment key outside the database. MCP OAuth will authenticate an MCP client separately from WebUntis authentication. Downstream tokens will never be passed through to Untis or vice versa. Least privilege, single-account deployments, output minimization, and a read-only policy remain mandatory.
+
+## Local MCP server
+
+The stdio server reads credentials from the JSON file named by `UNTIS_MCP_CREDENTIALS_FILE`; it accepts no secret CLI arguments or interactive stdin. The variable contains a path, not credential material. Keep the file under ignored `.local/` with mode `0600`. Group/world permission bits cause startup refusal on POSIX, while Windows does not depend on POSIX modes. File contents, paths, usernames, school names, raw failures, and server responses are never logged.
+
+Credentials exist only in process memory. Every tool call validates its date range before network access, serializes use of the single legacy session, logs in, fetches once, and attempts logout in `finally`, including failures and timeouts. There is no persistence, cache, or background polling.
+
+MCP output is an explicit allowlist. It contains only dates, times, subject display strings, room display strings, and a small status enum. Raw objects, IDs, teachers, students, classes/groups, free text, substitutions/messages, tokens, cookies, attachments, and unknown fields cannot pass through. Unsupported data and upstream failures become stable generic errors without response values or stack traces. The connected MCP client is still outside the credential boundary but receives timetable data; operators must trust it with those minimized records.

@@ -7,6 +7,9 @@ export default defineConfig({
       '@untis-mcp/sanitization': fileURLToPath(
         new URL('./packages/sanitization/src/index.ts', import.meta.url),
       ),
+      '@untis-mcp/timetable': fileURLToPath(
+        new URL('./packages/timetable/src/index.ts', import.meta.url),
+      ),
       '@untis-mcp/untis-client': fileURLToPath(
         new URL('./packages/untis-client/src/index.ts', import.meta.url),
       ),

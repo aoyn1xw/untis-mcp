@@ -35,3 +35,9 @@ Do not paste raw records here. Record only inspected, sanitized report facts.
 | _not run_ | —                       | —          | —              | Clone and run locally with a consenting account | yes             |
 
 Still requiring real-account verification: authentication compatibility, QR URL variations, exact error codes, every returned field/nullable variant, empty-result behavior, weekly endpoint availability, permissions, attachments, rate limits, and clean logout/session invalidation.
+
+## Milestone 2 timetable assumption
+
+The public MCP timetable slice supports only the legacy `Lesson[]` declaration shipped by `webuntis` 2.2.1: integer `date`, `startTime`, and `endTime`, plus `su` (subjects), `ro` (rooms), and optional `code`. Subject/room display values use `longname` when present and otherwise `name`; all other lesson fields are discarded. Known `cancelled` and `irregular` codes are mapped directly, an absent code is `scheduled`, and an unrecognized code is `unknown`. Unsupported top-level or lesson shapes fail closed with a generic error.
+
+This shape was tested only with fictional fixtures in Codex Cloud. A consenting operator must run the documented local smoke test to verify their school's actual response. The evidence probe remains the mechanism for investigating a mismatch without widening the MCP output.
