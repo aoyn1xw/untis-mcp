@@ -7,14 +7,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm -r build",
-    "probe": "pnpm --filter @untis-mcp/probe start",
+    "build": "corepack pnpm -r build",
+    "probe": "corepack pnpm --filter @untis-mcp/probe start",
     "test": "vitest run",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "mcp": "pnpm --filter @untis-mcp/mcp-server build && pnpm --filter @untis-mcp/mcp-server start"
+    "mcp": "corepack pnpm --filter @untis-mcp/mcp-server build && corepack pnpm --filter @untis-mcp/mcp-server start"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
