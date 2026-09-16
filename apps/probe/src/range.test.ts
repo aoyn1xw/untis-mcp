@@ -27,6 +27,12 @@ describe('dateRange', () => {
     expect(() => dateRange(a, b)).toThrow();
   });
 
+  it('reports the required format for malformed dates', () => {
+    expect(() => dateRange('2026/01/01', '2026-01-02')).toThrow(
+      'Date range must use YYYY-MM-DD',
+    );
+  });
+
   it('formats dates from local calendar components', () => {
     const date = new Date(2026, 8, 7, 23, 30);
     expect(localDateText(date)).toBe('2026-09-07');

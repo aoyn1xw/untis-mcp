@@ -1,7 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
-import { askQuestion, readHiddenSecret, type StreamLike } from './terminal.js';
+import {
+  askQuestion,
+  readHiddenSecret,
+  safeCliErrorMessage,
+  type StreamLike,
+} from './terminal.js';
 
 class MockTTYInput extends EventEmitter implements StreamLike {
   isTTY = true;
@@ -119,5 +124,42 @@ describe('readHiddenSecret', () => {
     expect(input.rawMode).toBe(false);
     expect(input.listenerCount('data')).toBe(0);
     expect(exitMock).toHaveBeenCalledWith(130);
+  });
+
+  it('rejects EOF and restores terminal state', async () => {
+    const input = new MockTTYInput();
+    const output = new MockWritable();
+
+    const promise = readHiddenSecret('Secret: ', input, output);
+    input.emit('end');
+
+    await expect(promise).rejects.toThrow('Secret input closed');
+    expect(input.rawMode).toBe(false);
+    expect(input.listenerCount('data')).toBe(0);
+    expect(input.listenerCount('end')).toBe(0);
+  });
+
+  it('does not include terminal escape sequences in a secret', async () => {
+    const input = new MockTTYInput();
+    const output = new MockWritable();
+
+    const promise = readHiddenSecret('Secret: ', input, output);
+    input.emit('data', Buffer.from([97, 27, 91, 68, 98, 13]));
+
+    await expect(promise).resolves.toBe('ab');
+  });
+});
+
+describe('safeCliErrorMessage', () => {
+  it('makes sanitized login failures useful without reflecting untrusted errors', () => {
+    expect(safeCliErrorMessage(new Error('unauthorized'))).toBe(
+      'WebUntis login rejected',
+    );
+    expect(safeCliErrorMessage(new Error('timeout'))).toBe(
+      'WebUntis login timed out',
+    );
+    expect(
+      safeCliErrorMessage(new Error('password=secret connection failed')),
+    ).toBe('Probe failed safely');
   });
 });
