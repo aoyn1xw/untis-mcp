@@ -64,6 +64,31 @@ describe('TimetableService', () => {
       }),
     ).rejects.toThrow('Unsupported timetable response');
   });
+  it.each([20260915, 20260917])(
+    'rejects an upstream lesson outside the requested range: %i',
+    async (date) => {
+      const x = fake({
+        getOwnTimetable: () => {
+          x.events.push('fetch');
+          return Promise.resolve([
+            {
+              date,
+              startTime: 815,
+              endTime: 945,
+              su: [{ name: 'Example Subject' }],
+              ro: [{ name: 'Example Room' }],
+            },
+          ]);
+        },
+      });
+      await expect(
+        new TimetableService(x.adapter).getTimetable({
+          start_date: '2026-09-16',
+        }),
+      ).rejects.toThrow('Unsupported timetable response');
+      expect(x.events).toEqual(['login', 'fetch', 'logout']);
+    },
+  );
   it('propagates a safe timeout and logs out', async () => {
     const x = fake({ getOwnTimetable: () => new Promise(() => undefined) });
     await expect(

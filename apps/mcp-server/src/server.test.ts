@@ -18,11 +18,11 @@ const raw = [
   },
 ];
 let close: (() => Promise<void>) | undefined;
-async function connected() {
+async function connected(rawResponse: unknown = raw) {
   const adapter: TimetableAdapter = {
     login: () => Promise.resolve(),
     logout: () => Promise.resolve(),
-    getOwnTimetable: () => Promise.resolve(raw),
+    getOwnTimetable: () => Promise.resolve(rawResponse),
   };
   const server = createMcpServer(adapter, {
     now: () => new Date(2026, 8, 16, 12),
@@ -106,4 +106,25 @@ describe('MCP server', () => {
       ).isError,
     ).toBe(true);
   });
+  it.each([20260915, 20260917])(
+    'rejects an upstream lesson outside the requested range: %i',
+    async (date) => {
+      const result = await (
+        await connected([
+          {
+            ...raw[0],
+            date,
+          },
+        ])
+      ).callTool({
+        name: 'get_timetable',
+        arguments: { start_date: '2026-09-16' },
+      });
+      expect(result).toMatchObject({
+        isError: true,
+        content: [{ type: 'text', text: 'Unsupported timetable response' }],
+      });
+      expect(result).not.toHaveProperty('structuredContent');
+    },
+  );
 });

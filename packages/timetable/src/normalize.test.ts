@@ -68,21 +68,25 @@ describe('normalizeLegacyTimetable', () => {
     ['school-specific', 'unknown'],
   ] as const)('maps %s', (code, status) =>
     expect(
-      normalizeLegacyTimetable([{ ...lesson, code }], 'x', 'y').lessons[0]
-        ?.status,
+      normalizeLegacyTimetable(
+        [{ ...lesson, code }],
+        '2026-09-01',
+        '2026-09-30',
+      ).lessons[0]?.status,
     ).toBe(status),
   );
   it('sorts stably and supports empty data', () => {
     const early = { ...lesson, date: 20260915, startTime: 700, endTime: 745 };
     expect(
-      normalizeLegacyTimetable([lesson, early], 'x', 'y').lessons.map(
-        (x) => x.date,
-      ),
+      normalizeLegacyTimetable(
+        [lesson, early],
+        '2026-09-01',
+        '2026-09-30',
+      ).lessons.map((x) => x.date),
     ).toEqual(['2026-09-15', '2026-09-16']);
-    expect(normalizeLegacyTimetable([], 'x', 'y')).toMatchObject({
-      count: 0,
-      lessons: [],
-    });
+    expect(
+      normalizeLegacyTimetable([], '2026-09-01', '2026-09-30'),
+    ).toMatchObject({ count: 0, lessons: [] });
   });
   it.each([
     {},
@@ -93,11 +97,23 @@ describe('normalizeLegacyTimetable', () => {
   ])('rejects unsupported data without leaking it', (raw) => {
     let message = '';
     try {
-      normalizeLegacyTimetable(raw, 'x', 'y');
+      normalizeLegacyTimetable(raw, '2026-09-01', '2026-09-30');
     } catch (error) {
       message = (error as Error).message;
     }
     expect(message).toBe('Unsupported timetable response');
     expect(message).not.toContain('seeded');
   });
+  it.each([20260915, 20260917])(
+    'rejects a lesson outside the requested range: %i',
+    (date) => {
+      expect(() =>
+        normalizeLegacyTimetable(
+          [{ ...lesson, date }],
+          '2026-09-16',
+          '2026-09-16',
+        ),
+      ).toThrow('Unsupported timetable response');
+    },
+  );
 });
