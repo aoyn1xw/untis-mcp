@@ -77,8 +77,10 @@ export function normalizeLegacyTimetable(
   const lessons = raw
     .map((value): TimetableLesson => {
       const lesson = record(value);
+      const lessonDate = date(lesson.date);
+      if (lessonDate < startDate || lessonDate > endDate) throw unsupported();
       return {
-        date: date(lesson.date),
+        date: lessonDate,
         startTime: time(lesson.startTime),
         endTime: time(lesson.endTime),
         subjects: displays(lesson.su),
