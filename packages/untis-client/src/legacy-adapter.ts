@@ -2,6 +2,7 @@ import { authenticator } from 'otplib';
 import { WebUntis, WebUntisQR } from 'webuntis';
 import { URL } from 'node:url';
 import { safeError } from './errors.js';
+import { assertReadOnlyRequest } from './read-only-guard.js';
 import type {
   CapabilityName,
   CapabilityCallOptions,
@@ -32,6 +33,10 @@ export class LegacyJsonRpcAdapter implements UntisAdapter, TimetableAdapter {
             credentials.server,
             'untis-mcp-probe',
           );
+    this.client.axios.interceptors.request.use((request) => {
+      assertReadOnlyRequest(request);
+      return request;
+    });
   }
 
   async login(options?: CapabilityCallOptions): Promise<void> {

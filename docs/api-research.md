@@ -1,43 +1,31 @@
 # WebUntis API research
 
-This document separates wrapper evidence from facts that must be measured locally. Availability varies by school, module licensing, server version, and account permissions.
+This project uses unofficial, reverse-engineered WebUntis interfaces. QR enrollment is an official Untis feature, but this protocol implementation is not affiliated with or endorsed by Untis and must not be described as an official SDK. Availability varies by tenant, module licensing, server version, and account permission.
 
-## Online evidence
+## Current protocol evidence
 
-The installed [`webuntis` 2.2.1 package](https://www.npmjs.com/package/webuntis) and its [published TypeScript source](https://github.com/SchoolUtils/WebUntis) are the primary evidence for the adapter's current method names. The package declares password and QR/TOTP authentication plus methods for own/range/weekly timetables, exams, homework, absences, inbox, holidays, subjects, rooms, teachers, classes, school years, time grid, and session validation.
+The installed `webuntis` wrapper provides QR/TOTP authentication and maintains the resulting WebUntis session in memory. The client currently needs these read-only protocol families:
 
-Its published types indicate that legacy `Lesson` values can contain date/time, classes, teachers, subjects, rooms, student groups, cancellation/irregular codes, and several free-text fields. `Exam.assignedStudents` can include display names and numeric IDs, so values must never pass automatically. Homework attachments are typed as unknown. The richer weekly method has element arrays and substitution state not present in the older lesson shape. These are wrapper declarations—not guarantees about any school.
+| Domain operation | Observed interface                               | Normalization rule                                                                         |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Timetable range  | legacy JSON-RPC timetable method                 | convert legacy `su`, `ro`, and `te` elements into stable subject, room, and teacher models |
+| Weekly timetable | `GET /WebUntis/api/public/timetable/weekly/data` | preserve the richer `lessonId` and element arrays                                          |
+| Homework         | `GET /WebUntis/api/homeworks/lessons`            | validate the complete `records`, `homeworks`, `teachers`, and `lessons` envelope           |
 
-The maintainer has reportedly warned that the legacy JSON-RPC API may be retired around **2027**. This is an unconfirmed possibility, not a shutdown date; it requires ongoing verification. The intended long-term integration is the official [Untis Platform](https://platform.untis.at/) API, with an `OfficialPlatformAdapter` added after access and authentication are researched. Untis also publishes its [WebUntis help center](https://help.untis.at/) as the primary product reference.
+The runtime homework response is deliberately treated as more authoritative than the wrapper's TypeScript declaration. `homework.id` is its identity; `homework.lessonId` is stored separately and can correlate with weekly timetable entries. This is not assumed to be one-to-one because one lesson can span multiple timetable periods.
 
-## Expected response categories
+Homework attachment metadata is retained as validated JSON-compatible data, but its detailed schema is not yet considered stable and downloading is not implemented.
 
-| Probe capability       | Wrapper method                                       | Expected category (not asserted shape) | Must verify locally                  |
-| ---------------------- | ---------------------------------------------------- | -------------------------------------- | ------------------------------------ |
-| Today / date range     | `getOwnTimetableForToday`, `getOwnTimetableForRange` | lesson arrays                          | element/text variants, permission    |
-| Weekly timetable       | `getOwnTimetableForWeek`                             | richer timetable array                 | format and availability              |
-| Exams                  | `getExamsForRange`                                   | exam array                             | assigned students, grades, scope     |
-| Homework               | `getHomeWorksFor`                                    | homework array                         | attachment shape and access          |
-| Absences               | `getAbsentLesson`                                    | object containing absences             | own-user filtering and permission    |
-| Inbox                  | `getInbox`                                           | incoming-message object                | preview/free-text exposure           |
-| Holidays / master data | corresponding getters                                | arrays                                 | fields, emptiness, school-year rules |
-| Classes                | `getCurrentSchoolyear` then `getClasses`             | class array                            | student-account permission           |
-| Session                | `validateSession`                                    | boolean-like                           | expiry behavior                      |
+## Safety constraints
 
-The adapter disables redundant per-call session validation after an explicit login to bound request volume. It probes each endpoint once (classes additionally needs the current school year), caps ranges at 31 days, applies a 15-second timeout to each capability, isolates failures and timeouts, and logs out in `finally`. Password-login server input is restricted to a bare hostname or origin-only HTTPS URL and normalized to its hostname.
+All HTTP access passes through an exact allowlist. Approved JSON-RPC read and authentication/session-control methods and approved GET paths are enumerated in code; everything else fails closed. The session manager performs at most one automatic reauthentication attempt after an authentication rejection. QR secrets, OTPs, cookies, and session identifiers are never placed in fixtures or logs.
 
-## Local findings worksheet
+## Remaining unknowns
 
-Do not paste raw records here. Record only inspected, sanitized report facts.
+- Endpoint and response differences across other schools and WebUntis releases.
+- The complete attachment metadata variants and any supported read-only download mechanism.
+- Exact expiration behavior and status codes across tenants.
+- Long-term availability of the legacy JSON-RPC and undocumented REST-like interfaces.
+- Whether a suitable official Untis Platform API can replace these interfaces for this account type.
 
-| Date      | School/server pseudonym | Capability | Classification | Sanitized shape notes                           | Needs follow-up |
-| --------- | ----------------------- | ---------- | -------------- | ----------------------------------------------- | --------------- |
-| _not run_ | —                       | —          | —              | Clone and run locally with a consenting account | yes             |
-
-Still requiring real-account verification: authentication compatibility, QR URL variations, exact error codes, every returned field/nullable variant, empty-result behavior, weekly endpoint availability, permissions, attachments, rate limits, and clean logout/session invalidation.
-
-## Milestone 2 timetable assumption
-
-The public MCP timetable slice supports only the legacy `Lesson[]` declaration shipped by `webuntis` 2.2.1: integer `date`, `startTime`, and `endTime`, plus `su` (subjects), `ro` (rooms), and optional `code`. Subject/room display values use `longname` when present and otherwise `name`; all other lesson fields are discarded. Known `cancelled` and `irregular` codes are mapped directly, an absent code is `scheduled`, and an unrecognized code is `unknown`. Unsupported top-level or lesson shapes fail closed with a generic error.
-
-This shape was tested only with fictional fixtures in Codex Cloud. A consenting operator must run the documented local smoke test to verify their school's actual response. The evidence probe remains the mechanism for investigating a mismatch without widening the MCP output.
+Applications should treat `UnsupportedFeatureError` and `InvalidResponseError` as expected compatibility failures and degrade gracefully. The existing sanitized evidence probe remains available for investigating a tenant mismatch without widening the MCP output or storing credentials in the repository.

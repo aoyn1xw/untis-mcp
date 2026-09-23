@@ -1,30 +1,73 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { TimetableAdapter } from '@untis-mcp/untis-client';
+import type {
+  HomeworkResult,
+  TimetableEntry,
+  WebUntisDomainApi,
+} from '@untis-mcp/untis-client';
 import { createMcpServer } from './server.js';
 
-const raw = [
+const timetable = [
   {
     id: 777,
-    date: 20260916,
-    startTime: 815,
-    endTime: 945,
-    su: [{ name: 'Digital Design' }],
-    ro: [{ name: 'K409' }],
-    te: [{ name: 'Private Teacher' }],
+    date: '2026-09-16',
+    startTime: '08:15',
+    endTime: '09:45',
+    subjects: [{ name: 'Digital Design' }],
+    rooms: [{ name: 'K409' }],
+    teachers: [{ name: 'Synthetic Teacher' }],
+    status: 'scheduled' as const,
     info: 'private note',
     token: 'fixture-secret',
   },
 ];
+const weekly: TimetableEntry[] = [
+  { ...timetable[0]!, id: 801, lessonId: 44 },
+  {
+    ...timetable[0]!,
+    id: 802,
+    lessonId: 44,
+    startTime: '09:45',
+    endTime: '10:30',
+  },
+];
+const homework: HomeworkResult = {
+  records: [{ homeworkId: 91, teacherId: 8, elementIds: [5] }],
+  homeworks: [
+    {
+      id: 91,
+      lessonId: 44,
+      date: '2026-09-16',
+      dueDate: '2026-09-18',
+      text: 'Synthetic assignment',
+      remark: '',
+      completed: false,
+      attachments: [{ metadata: { fileName: 'example.pdf' } }],
+    },
+  ],
+  teachers: [{ id: 8, name: 'Synthetic Teacher' }],
+  lessons: [
+    {
+      id: 44,
+      subject: { id: 5, name: 'Digital Design' },
+      lessonType: 'lesson',
+    },
+  ],
+};
 let close: (() => Promise<void>) | undefined;
-async function connected(rawResponse: unknown = raw) {
-  const adapter: TimetableAdapter = {
-    login: () => Promise.resolve(),
-    logout: () => Promise.resolve(),
-    getOwnTimetable: () => Promise.resolve(rawResponse),
+async function connected(
+  timetableResponse: TimetableEntry[] = timetable,
+  overrides: Partial<WebUntisDomainApi> = {},
+) {
+  const domain: WebUntisDomainApi = {
+    getTimetable: () => Promise.resolve(timetableResponse),
+    getWeeklyTimetable: () => Promise.resolve(weekly),
+    getHomework: () => Promise.resolve(homework),
+    close: () => Promise.resolve(),
+    ...overrides,
   };
-  const server = createMcpServer(adapter, {
+  const server = createMcpServer(domain, {
     now: () => new Date(2026, 8, 16, 12),
   });
   const client = new Client({ name: 'test', version: '1' });
@@ -42,10 +85,14 @@ async function connected(rawResponse: unknown = raw) {
 }
 afterEach(async () => close?.());
 describe('MCP server', () => {
-  it('discovers exactly the read-only timetable tool and no other feature', async () => {
+  it('discovers only the three read-only domain tools', async () => {
     const client = await connected();
     const listed = await client.listTools();
-    expect(listed.tools.map((x) => x.name)).toEqual(['get_timetable']);
+    expect(listed.tools.map((x) => x.name)).toEqual([
+      'get_timetable',
+      'get_weekly_timetable',
+      'get_homework',
+    ]);
     expect(listed.tools[0]?.inputSchema).toMatchObject({
       type: 'object',
       additionalProperties: false,
@@ -69,11 +116,31 @@ describe('MCP server', () => {
     const serialized = JSON.stringify(result);
     for (const value of [
       '777',
-      'Private Teacher',
+      'Synthetic Teacher',
       'private note',
       'fixture-secret',
     ])
       expect(serialized).not.toContain(value);
+  });
+  it('returns normalized homework and preserves lesson correlation', async () => {
+    const client = await connected();
+    const homeworkResult = await client.callTool({
+      name: 'get_homework',
+      arguments: {
+        start_date: '2026-09-16',
+        end_date: '2026-09-18',
+      },
+    });
+    const weeklyResult = await client.callTool({
+      name: 'get_weekly_timetable',
+      arguments: { date: '2026-09-16' },
+    });
+    expect(homeworkResult.structuredContent).toMatchObject({
+      homeworks: [{ id: 91, lessonId: 44 }],
+    });
+    expect(weeklyResult.structuredContent).toMatchObject({
+      entries: [{ lessonId: 44 }, { lessonId: 44 }],
+    });
   });
   it('accepts an explicit date range', async () => {
     const result = await (
@@ -106,13 +173,13 @@ describe('MCP server', () => {
       ).isError,
     ).toBe(true);
   });
-  it.each([20260915, 20260917])(
-    'rejects an upstream lesson outside the requested range: %i',
+  it.each(['2026-09-15', '2026-09-17'])(
+    'rejects an upstream lesson outside the requested range: %s',
     async (date) => {
       const result = await (
         await connected([
           {
-            ...raw[0],
+            ...timetable[0]!,
             date,
           },
         ])

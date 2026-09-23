@@ -1,5 +1,8 @@
-import type { TimetableAdapter } from '@untis-mcp/untis-client';
-import { normalizeLegacyTimetable, type TimetableResult } from './normalize.js';
+import type { WebUntisDomainApi } from '@untis-mcp/untis-client';
+import {
+  normalizeTimetableEntries,
+  type TimetableResult,
+} from './normalize.js';
 import { validateTimetableRange } from './range.js';
 
 export const DEFAULT_TIMETABLE_TIMEOUT_MS = 15_000;
@@ -12,6 +15,8 @@ function safeServiceError(error: unknown): Error {
   const message = error instanceof Error ? error.message.toLowerCase() : '';
   if (message.includes('unsupported timetable response'))
     return new Error('Unsupported timetable response');
+  if (message.includes('invalid webuntis response'))
+    return new Error('Invalid WebUntis response');
   if (/unauthorized|authentication/.test(message))
     return new Error('Authentication failed');
   if (/forbidden|permission denied/.test(message))
@@ -24,7 +29,7 @@ function safeServiceError(error: unknown): Error {
 export class TimetableService {
   private tail: Promise<void> = Promise.resolve();
   constructor(
-    private readonly adapter: TimetableAdapter,
+    private readonly client: Pick<WebUntisDomainApi, 'getTimetable'>,
     private readonly timeoutMs = DEFAULT_TIMETABLE_TIMEOUT_MS,
     private readonly now: () => Date = () => new Date(),
   ) {}
@@ -43,7 +48,12 @@ export class TimetableService {
     range: ReturnType<typeof validateTimetableRange>,
   ): Promise<TimetableResult> {
     try {
-      return await this.session(range);
+      const entries = await this.bounded(
+        this.client.getTimetable(range.adapterRange, {
+          timeoutMs: this.timeoutMs,
+        }),
+      );
+      return normalizeTimetableEntries(entries, range.startDate, range.endDate);
     } catch (error) {
       throw safeServiceError(error);
     }
@@ -63,21 +73,6 @@ export class TimetableService {
       ]);
     } finally {
       if (timer) clearTimeout(timer);
-    }
-  }
-
-  private async session(
-    range: ReturnType<typeof validateTimetableRange>,
-  ): Promise<TimetableResult> {
-    const options = { timeoutMs: this.timeoutMs };
-    try {
-      await this.bounded(this.adapter.login(options));
-      const raw = await this.bounded(
-        this.adapter.getOwnTimetable(range.adapterRange, options),
-      );
-      return normalizeLegacyTimetable(raw, range.startDate, range.endDate);
-    } finally {
-      await this.bounded(this.adapter.logout(options));
     }
   }
 }

@@ -1,3 +1,5 @@
+import type { TimetableEntry } from '@untis-mcp/untis-client';
+
 export type LessonStatus = 'scheduled' | 'cancelled' | 'irregular' | 'unknown';
 export interface TimetableLesson {
   date: string;
@@ -86,6 +88,60 @@ export function normalizeLegacyTimetable(
         subjects: displays(lesson.su),
         rooms: displays(lesson.ro),
         status: status(lesson.code),
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.startTime.localeCompare(b.startTime) ||
+        a.endTime.localeCompare(b.endTime),
+    );
+  return { startDate, endDate, count: lessons.length, lessons };
+}
+
+function stableDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw unsupported();
+  const [year, month, day] = value.split('-').map(Number);
+  const checked = new Date(Date.UTC(year!, month! - 1, day));
+  if (
+    checked.getUTCFullYear() !== year ||
+    checked.getUTCMonth() !== month! - 1 ||
+    checked.getUTCDate() !== day
+  )
+    throw unsupported();
+  return value;
+}
+
+function stableTime(value: string): string {
+  if (!/^\d{2}:\d{2}$/.test(value)) throw unsupported();
+  const [hour, minute] = value.split(':').map(Number);
+  if (hour! > 23 || minute! > 59) throw unsupported();
+  return value;
+}
+
+function entityNames(
+  values: ReadonlyArray<{ name: string; longName?: string | undefined }>,
+): string[] {
+  return values.map((value) => (value.longName || value.name).trim());
+}
+
+export function normalizeTimetableEntries(
+  entries: TimetableEntry[],
+  startDate: string,
+  endDate: string,
+): TimetableResult {
+  if (!Array.isArray(entries)) throw unsupported();
+  const lessons = entries
+    .map((entry): TimetableLesson => {
+      const lessonDate = stableDate(entry.date);
+      if (lessonDate < startDate || lessonDate > endDate) throw unsupported();
+      return {
+        date: lessonDate,
+        startTime: stableTime(entry.startTime),
+        endTime: stableTime(entry.endTime),
+        subjects: entityNames(entry.subjects),
+        rooms: entityNames(entry.rooms),
+        status: entry.status,
       };
     })
     .sort(
