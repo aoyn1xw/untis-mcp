@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "corepack pnpm -r build",
+    "import-qr": "corepack pnpm --filter @untis-mcp/probe import-qr",
     "probe": "corepack pnpm --filter @untis-mcp/probe start",
     "test": "vitest run",
     "typecheck": "tsc -b --pretty false",

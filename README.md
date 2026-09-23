@@ -42,6 +42,17 @@ UNTIS_MCP_CREDENTIALS_FILE="$PWD/.local/credentials.json" corepack pnpm mcp
 
 The path environment variable is not itself a secret. Never put credential values in environment variables, command arguments, source control, logs, or client configuration. The server refuses group/world-accessible credential files on POSIX; Windows does not require POSIX mode bits. Stdio is reserved for MCP messages and generic startup diagnostics use stderr.
 
+To inspect the CLI or validate the credential file without contacting
+WebUntis:
+
+```sh
+corepack pnpm mcp --help
+UNTIS_MCP_CREDENTIALS_FILE="$PWD/.local/credentials.json" corepack pnpm mcp --check
+```
+
+The normal server command prints a short readiness diagnostic to stderr after
+the stdio transport connects. Its stdout remains exclusively MCP protocol data.
+
 A generic MCP client configuration (adjust the command and absolute repository path for the client) is:
 
 ```json
@@ -73,6 +84,10 @@ The result contains only `startDate`, `endDate`, `count`, and `lessons`. Every l
 ## Evidence probe
 
 Run the separate interactive research probe with `corepack pnpm probe`. It can inspect broader read-only capability shapes and writes private raw results under `.local/probe/`; it is not part of the MCP public contract. Treat QR images/profiles and raw results as private, and delete probe output promptly.
+
+To import a locally saved WebUntis QR screenshot into the ignored MCP credential
+file without displaying its secret payload, run
+`corepack pnpm import-qr .local/webuntis-qr.png .local/credentials.json`.
 
 ## Development
 

@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "bin": {
-    "untis-probe": "dist/cli.js"
+    "untis-probe": "dist/cli.js",
+    "untis-import-qr": "dist/import-qr.js"
   },
   "scripts": {
     "build": "tsc -b",
+    "import-qr": "corepack pnpm build && node dist/import-qr.js",
     "start": "pnpm build && node dist/cli.js"
   },
   "dependencies": {
